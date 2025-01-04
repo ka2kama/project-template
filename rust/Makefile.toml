@@ -1,0 +1,53 @@
+[config]
+# Skip loading of all core tasks which saves up a bit on toml parsing and task creation
+skip_core_tasks = true
+# Skips loading Git related environment variables
+skip_git_env_info = true
+# Skips loading rust related environment variables
+skip_rust_env_info = true
+# Skips loading the current crate related environment variables
+skip_crate_env_info = true
+
+[env.development]
+RUST_LOG = "debug"
+RUST_BACKTRACE = 1
+RUST_LOG_STYLE = "always"
+
+[tasks.lint]
+description = "Run linters"
+script = '''
+cargo +nightly fmt --all -- --check
+cargo +nightly clippy --all-targets --all-features -- -D warnings -D clippy::all
+'''
+
+[tasks.fmt]
+script = '''
+cargo +nightly fmt --all
+'''
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+dependencies = ["fmt"]
+
+[tasks.build-release]
+extend = "build"
+args = ["build", "--release"]
+
+[tasks.publish-local]
+script = '''
+APP_NAME=$(cat ./Cargo.toml \
+| docker run -i --rm ghcr.io/tomwright/dasel:latest -r toml 'package.name' \
+| sed "s/^'//;s/'$//")
+docker build \
+    --build-arg APP_NAME=$APP_NAME \
+    -t $APP_NAME:latest \
+    --progress=plain \
+    .
+'''
+
+[tasks.run]
+command = "cargo"
+args = ["run"]
+dependencies = ["fmt"]
+watch = { watch = ["./src", "./Cargo.toml"] }
